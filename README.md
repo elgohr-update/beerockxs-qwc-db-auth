@@ -1,3 +1,6 @@
+[![](https://github.com/qwc-services/qwc-db-auth/workflows/build/badge.svg)](https://github.com/qwc-services/qwc-db-auth/actions)
+[![](https://img.shields.io/docker/pulls/sourcepole/qwc-db-auth)](https://hub.docker.com/r/sourcepole/qwc-db-auth)
+
 Authentication with User DB
 ===========================
 
@@ -7,11 +10,48 @@ Authentication service with local user database.
 Configuration
 -------------
 
-Set the `MAX_LOGIN_ATTEMPTS` environment variable to set the maximum number of 
+The static config files are stored as JSON files in `$CONFIG_PATH` with subdirectories for each tenant,
+e.g. `$CONFIG_PATH/default/*.json`. The default tenant name is `default`.
+
+### DB Auth Service config
+
+* [JSON schema](schemas/qwc-db-auth.json)
+* File location: `$CONFIG_PATH/<tenant>/dbAuthConfig.json`
+
+Example:
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/qwc-services/qwc-db-auth/master/schemas/qwc-db-auth.json",
+  "service": "db-auth",
+  "config": {
+    "db_url": "postgresql:///?service=qwc_configdb"
+  }
+}
+```
+
+Set the `MAX_LOGIN_ATTEMPTS` environment variable to set the maximum number of
 failed login attempts before sign in is blocked (default: `20`).
 
+A minimum password length of `8` with no other constraints is set by default. Optional password complexity constraints can be set using the following `config` options:
+```json
+"config": {
+  "password_min_length": 8,
+  "password_max_length": 128,
+  "password_constraints": [
+      "[A-Z]",
+      "[a-z]",
+      "\\d",
+      "[ !\"#$%&'()*+,\\-./\\\\:;<=>?@\\[\\]^_`{|}~]"
+  ],
+  "password_min_constraints": 3,
+  "password_constraints_message": "Password must contain at least three of these character types: uppercase letters, lowercase letters, numbers, special characters"
+}
+```
+
+`password_min_length` and `password_max_length` can be set independently. `password_constraints` is a list of regular expression of which at least `password_min_constraints` have to match for the password to be valid, otherwise the `password_constraints_message` is shown. Note that the regular expression have to be JSON escaped and allow only patterns supported by Python's `re` module.
+
 Besides the form based DB login, an (insecure) plain POST login is supported. This method can be
-activated by setting `POST_PARAM_LOGIN=True`. User and password are passed as POST parameters 
+activated by setting `POST_PARAM_LOGIN=True`. User and password are passed as POST parameters
 `username` and `password`.
 Usage example: `curl -d 'username=demo&password=demo' http://localhost:5017/login`.
 
@@ -70,6 +110,16 @@ Install requirements:
 
     pip install -r requirements.txt
 
+Set the `CONFIG_PATH` environment variable to the path containing the service config and permission files when starting this service (default: `config`).
+
+    export CONFIG_PATH=../qwc-docker/demo-config
+
+Configure environment:
+
+    echo FLASK_ENV=development >.flaskenv
+    export MAIL_SUPPRESS_SEND=True
+    export MAIL_DEFAULT_SENDER=from@example.com
+
 Start local service:
 
-    MAIL_SUPPRESS_SEND=True MAIL_DEFAULT_SENDER=from@example.com python server.py
+     python server.py
